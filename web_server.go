@@ -60,22 +60,36 @@ func serveDiscovery(w http.ResponseWriter, r *http.Request, discoveryJson []byte
 	w.Write(discoveryJson)
 }
 
-func listDatasets(w http.ResponseWriter, r *http.Request, project string) {
-	dataset := "belugacdn_logs"
+func listDatasets(w http.ResponseWriter, r *http.Request, projectName string) {
+	project, projectOk := projects[projectName]
+	if !projectOk {
+		project = Project{Datasets: map[string]Dataset{}}
+		projects[projectName] = project
+	}
+
+	datasetOutputs := []map[string]interface{}{}
+	for datasetName := range project.Datasets {
+		datasetOutput := map[string]interface{}{
+			"kind": "bigquery#dataset",
+			"id":   fmt.Sprintf("%s:%s", projectName, datasetName),
+			"datasetReference": map[string]string{
+				"projectId": projectName,
+				"datasetId": datasetName,
+			},
+		}
+		datasetOutputs = append(datasetOutputs, datasetOutput)
+	}
+
+	datasetOutputsJson, err := json.Marshal(datasetOutputs)
+	if err != nil {
+		log.Fatalf("Error from Marshal: %v", err)
+	}
+
 	fmt.Fprintf(w, `{
 		"kind": "bigquery#datasetList",
 		"etag": "\"cX5UmbB_R-S07ii743IKGH9YCYM/qwnfLrlOKTXd94DjXLYMd9AnLA8\"",
-		"datasets": [
-		 {
-			"kind": "bigquery#dataset",
-			"id": "%s:%s",
-			"datasetReference": {
-			 "datasetId": "%s",
-			 "projectId": "%s"
-			}
-		 }
-		]
-	 }`, project, dataset, dataset, project)
+		"datasets": %s
+	 }`, datasetOutputsJson)
 }
 
 func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
