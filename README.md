@@ -1,4 +1,9 @@
-# Example usage
+## Supported features
+
+* `SELECT COUNT(*) FROM dataset.tablename`
+* `SELECT * FROM dataset.tablename LIMIT n`
+
+## Example usage
 
 * `curl https://www.googleapis.com/discovery/v1/apis/bigquery/v2/rest > discovery.json`
 * `go install .`
