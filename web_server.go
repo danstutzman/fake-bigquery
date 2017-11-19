@@ -11,12 +11,15 @@ import (
 )
 
 var discoveryJson []byte
-var DATASETS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets$")
-var DATASET_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/([^/]*)$")
-var TABLES_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/([^/]*)/tables$")
-var JOBS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/jobs$")
-var QUERY_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/queries/(.*?)$")
-var INSERT_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/(.*?)/tables/(.*?)/insertAll")
+
+var DATASETS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets$")
+var DATASET_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets/([^/]*)$")
+var TABLES_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets/([^/]*)/tables$")
+var TABLE_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets/([^/]*)/tables/([^/]*)$")
+var JOBS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/jobs$")
+var QUERY_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/queries/([^/]*)$")
+var INSERT_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets/([^/]*)/tables/([^/]*)/insertAll")
+
 var SELECT_COUNT_STAR_REGEXP = regexp.MustCompile(`(?i)^SELECT COUNT\(\*\) FROM ([^.]+).([^\s]+)$`)
 var SELECT_STAR_REGEXP = regexp.MustCompile(`(?i)^SELECT \* FROM ([^.]+).([^\s]+)( LIMIT ([0-9])+)?$`)
 
@@ -113,7 +116,9 @@ func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
 		projects[projectName] = project
 	}
 
-	project.Datasets[datasetName] = Dataset{Tables: map[string]Table{}}
+	project.Datasets[datasetName] = Dataset{
+		Tables: map[string]Table{},
+	}
 
 	// Just serve the input as output
 	outputJson, err := json.Marshal(body)
@@ -208,8 +213,12 @@ func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetNam
 	if !datasetOk {
 		log.Fatalf("Dataset doesn't exist: %s", datasetName)
 	}
+
+	fieldsCopy := make([]Field, len(body.Schema.Fields))
+	copy(fieldsCopy, body.Schema.Fields)
 	dataset.Tables[tableName] = Table{
-		Fields: body.Schema.Fields,
+		Fields: fieldsCopy,
+		Rows:   []map[string]interface{}{},
 	}
 
 	// Just serve the input as output
@@ -218,7 +227,6 @@ func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetNam
 		log.Fatalf("Error from Marshal: %v", err)
 	}
 	w.Write(outputJson)
-
 }
 
 func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
@@ -299,16 +307,19 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 			log.Fatalf("Unknown table: %s", tableName)
 		}
 
-		rows := table.Rows
+		fromRows := table.Rows
 		if limit != -1 {
-			rows = table.Rows[0:limit]
+			fromRows = fromRows[0:limit]
 		}
 
-		result.Fields = table.Fields
-		for _, row := range rows {
+		result.Fields = make([]Field, len(table.Fields))
+		result.Rows = make([]ResultRow, 0)
+
+		copy(result.Fields, table.Fields)
+		for _, fromRow := range fromRows {
 			resultValues := []ResultValue{}
 			for _, field := range table.Fields {
-				value := row[field.Name]
+				value := fromRow[field.Name]
 
 				var resultValue ResultValue
 				if value != nil {
@@ -494,6 +505,60 @@ func checkDatasetExistence(w http.ResponseWriter, r *http.Request, projectName, 
 	}
 }
 
+func checkTableExistence(w http.ResponseWriter, r *http.Request, projectName, datasetName, tableName string) {
+	project, projectOk := projects[projectName]
+	if !projectOk {
+		project = Project{Datasets: map[string]Dataset{}}
+		projects[projectName] = project
+	}
+
+	dataset, datasetOk := project.Datasets[datasetName]
+	if !datasetOk {
+		log.Fatalf("Unknown dataset %s", datasetName)
+	}
+
+	_, tableExists := dataset.Tables[tableName]
+	if tableExists {
+		fmt.Fprintf(w, `{
+			"kind": "bigquery#table",
+			"etag": "\"cX5UmbB_R-S07ii743IKGH9YCYM/MTUxMTEyMDI0ODcwMA\"",
+			"id": "%s:%s.%s",
+			"selfLink": "https://www.googleapis.com/bigquery/v2/projects/%s/datasets/%s/tables/%s",
+			"tableReference": {
+				"projectId": "%s",
+				"datasetId": "%s",
+				"tableId": "%s"
+			},
+			"numBytes": "0",
+			"numLongTermBytes": "0",
+			"numRows": "0",
+			"creationTime": "1234567890123",
+			"lastModifiedTime": "1234567890123",
+			"type": "TABLE"
+		}`, projectName, datasetName, tableName,
+			projectName, datasetName, tableName,
+			projectName, datasetName, tableName)
+	} else {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, `{
+			"error": {
+			 "errors": [
+          {
+					 "domain": "global",
+					 "reason": "notFound",
+					 "message": "Not found: Table %s:%s.%s"
+					}
+			 ],
+			 "code": 404,
+			 "message": "Not found: Table %s:%s.%s"
+			}
+		 }`, projectName, datasetName, tableName,
+			projectName, datasetName, tableName)
+	}
+}
+
 func serve(w http.ResponseWriter, r *http.Request, discoveryJson []byte) {
 	path := r.URL.Path
 	log.Printf("Incoming path: %s", path)
@@ -524,6 +589,15 @@ func serve(w http.ResponseWriter, r *http.Request, discoveryJson []byte) {
 			listTables(w, r, project, dataset)
 		} else if r.Method == "POST" {
 			createTable(w, r, project, dataset)
+		} else {
+			log.Fatalf("Unexpected method: %s", r.Method)
+		}
+	} else if match := TABLE_REGEXP.FindStringSubmatch(path); match != nil {
+		project := match[2]
+		dataset := match[3]
+		table := match[4]
+		if r.Method == "GET" {
+			checkTableExistence(w, r, project, dataset, table)
 		} else {
 			log.Fatalf("Unexpected method: %s", r.Method)
 		}

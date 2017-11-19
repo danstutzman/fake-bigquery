@@ -5,3 +5,6 @@
 * `$GOPATH/bin/fake-bigquery -discovery-json-path discovery.json -port 9090`
 * `bq --api http://localhost:9090 mk mydataset`
 * `bq --api http://localhost:9090 ls`
+* `bq --api http://localhost:9090 mk mydataset.mytable`
+* `bq --api http://localhost:9090 ls mydataset`
+* `bq --api http://localhost:9090 query 'select count(*) from mydataset.mytable'`
