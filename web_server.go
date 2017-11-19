@@ -12,8 +12,8 @@ import (
 
 var discoveryJson []byte
 var DATASETS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets$")
-var DATASET_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/(.*?)$")
-var TABLES_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/(.*?)/tables$")
+var DATASET_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/([^/]*)$")
+var TABLES_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/([^/]*)/tables$")
 var JOBS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/jobs$")
 var QUERY_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/queries/(.*?)$")
 var INSERT_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/(.*?)/datasets/(.*?)/tables/(.*?)/insertAll")
@@ -109,27 +109,45 @@ func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
 	w.Write(outputJson)
 }
 
-func listTables(w http.ResponseWriter, r *http.Request, project, dataset string) {
-	table := "visits"
+func listTables(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
+	project, projectOk := projects[projectName]
+	if !projectOk {
+		project = Project{Datasets: map[string]Dataset{}}
+		projects[projectName] = project
+	}
+
+	dataset, datasetOk := project.Datasets[datasetName]
+	if !datasetOk {
+		log.Fatalf("Unknown dataset %s", datasetName)
+	}
+
+	tableOutputs := []map[string]interface{}{}
+	for table := range dataset.Tables {
+		tableOutput := map[string]interface{}{
+			"kind": "bigquery#table",
+			"id":   fmt.Sprintf("%s:%s.%s", projectName, datasetName, table),
+			"tableReference": map[string]string{
+				"projectId": projectName,
+				"datasetId": datasetName,
+				"tableId":   table,
+			},
+			"type":         "TABLE",
+			"creationTime": "1234567890123",
+		}
+		tableOutputs = append(tableOutputs, tableOutput)
+	}
+
+	tableOutputsJson, err := json.Marshal(tableOutputs)
+	if err != nil {
+		log.Fatalf("Error from Marshal: %v", err)
+	}
+
 	fmt.Fprintf(w, `{
 		"kind": "bigquery#tableList",
 		"etag": "\"cX5UmbB_R-S07ii743IKGH9YCYM/zZCSENSD7Bu0j7yv3iZTn_ilPBg\"",
-		"tables": [
-			{
-				"kind": "bigquery#table",
-				"id": "%s:%s.%s",
-				"tableReference": {
-					"projectId": "%s",
-					"datasetId": "%s",
-					"tableId": "%s"
-				},
-				"type": "TABLE",
-				"creationTime": "1510171319097"
-			}
-		],
-		"totalItems": 1
-		}
-	`, project, dataset, table, project, dataset, table)
+		"tables": %s,
+		"totalItems": %d
+	}`, tableOutputsJson, len(tableOutputs))
 }
 
 type CreateTableRequest struct {
