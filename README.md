@@ -1,5 +1,6 @@
 ## Supported features
 
+* Streaming insert
 * `SELECT COUNT(*) FROM dataset.tablename`
 * `SELECT * FROM dataset.tablename LIMIT n`
 
