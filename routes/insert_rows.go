@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
 type InsertRowsRequest struct {
@@ -26,10 +28,12 @@ func insertRows(w http.ResponseWriter, r *http.Request, projectName, datasetName
 	}
 	defer r.Body.Close()
 
-	project, projectOk := projects[projectName]
+	project, projectOk := data.Projects[projectName]
 	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
+		project = data.Project{
+			Datasets: map[string]data.Dataset{},
+		}
+		data.Projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]

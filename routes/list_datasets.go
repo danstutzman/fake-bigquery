@@ -1,17 +1,21 @@
-package main
+package routes
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
 func listDatasets(w http.ResponseWriter, r *http.Request, projectName string) {
-	project, projectOk := projects[projectName]
+	project, projectOk := data.Projects[projectName]
 	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
+		project = data.Project{
+			Datasets: map[string]data.Dataset{},
+		}
+		data.Projects[projectName] = project
 	}
 
 	datasetOutputs := []map[string]interface{}{}

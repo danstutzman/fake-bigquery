@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
 var SELECT_COUNT_STAR_REGEXP = regexp.MustCompile(`(?i)^SELECT COUNT\(\*\) FROM ([^.]+).([^\s]+)$`)
@@ -16,6 +18,19 @@ var SELECT_STAR_REGEXP = regexp.MustCompile(`(?i)^SELECT \* FROM ([^.]+).([^\s]+
 type CreateJobRequest struct {
 	Configuration Configuration `json:"configuration"`
 	JobReference  JobReference  `json:"jobReference"`
+}
+
+type Configuration struct {
+	Query1 Query1 `json:"query"`
+}
+
+type Query1 struct {
+	Query2 string `json:"query"`
+}
+
+type JobReference struct {
+	ProjectId string `json:"projectId"`
+	JobId     string `json:"jobId"`
 }
 
 func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
@@ -29,12 +44,12 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 
 	query := body.Configuration.Query1.Query2
 
-	var result Result
+	var result data.Result
 	if match := SELECT_COUNT_STAR_REGEXP.FindStringSubmatch(query); match != nil {
 		datasetName := match[1]
 		tableName := match[2]
 
-		project, projectOk := projects[projectName]
+		project, projectOk := data.Projects[projectName]
 		if !projectOk {
 			log.Fatalf("Unknown project: %s", projectName)
 		}
@@ -51,18 +66,18 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 
 		numRows := len(table.Rows)
 		numRowsString := fmt.Sprintf("%d", numRows)
-		result = Result{
-			Fields: []Field{
-				Field{
+		result = data.Result{
+			Fields: []data.Field{
+				data.Field{
 					Name: "f0_",
 					Type: "INTEGER",
 					Mode: "NULLABLE",
 				},
 			},
-			Rows: []ResultRow{
-				ResultRow{
-					Values: []ResultValue{
-						ResultValue{
+			Rows: []data.ResultRow{
+				data.ResultRow{
+					Values: []data.ResultValue{
+						data.ResultValue{
 							Value: &numRowsString,
 						},
 					},
@@ -81,7 +96,7 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 			}
 		}
 
-		project, projectOk := projects[projectName]
+		project, projectOk := data.Projects[projectName]
 		if !projectOk {
 			log.Fatalf("Unknown project: %s", projectName)
 		}
@@ -101,16 +116,16 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 			fromRows = fromRows[0:limit]
 		}
 
-		result.Fields = make([]Field, len(table.Fields))
-		result.Rows = make([]ResultRow, 0)
+		result.Fields = make([]data.Field, len(table.Fields))
+		result.Rows = make([]data.ResultRow, 0)
 
 		copy(result.Fields, table.Fields)
 		for _, fromRow := range fromRows {
-			resultValues := []ResultValue{}
+			resultValues := []data.ResultValue{}
 			for _, field := range table.Fields {
 				value := fromRow[field.Name]
 
-				var resultValue ResultValue
+				var resultValue data.ResultValue
 				if value != nil {
 					var valueString string
 					if valueFloat64, ok := value.(float64); ok {
@@ -120,12 +135,14 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 					} else {
 						valueString = fmt.Sprintf("%s", value)
 					}
-					resultValue = ResultValue{Value: &valueString}
+					resultValue = data.ResultValue{Value: &valueString}
 				}
 
 				resultValues = append(resultValues, resultValue)
 			}
-			result.Rows = append(result.Rows, ResultRow{Values: resultValues})
+			result.Rows = append(result.Rows, data.ResultRow{
+				Values: resultValues,
+			})
 		}
 
 	} else {
@@ -133,7 +150,7 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 	}
 
 	jobId := body.JobReference.JobId
-	queryResultByJobId[jobId] = result
+	data.QueryResultByJobId[jobId] = result
 
 	email := "a@b.com"
 	fmt.Fprintf(w, `{

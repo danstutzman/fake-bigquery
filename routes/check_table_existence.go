@@ -1,16 +1,20 @@
-package main
+package routes
 
 import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
 func checkTableExistence(w http.ResponseWriter, r *http.Request, projectName, datasetName, tableName string) {
-	project, projectOk := projects[projectName]
+	project, projectOk := data.Projects[projectName]
 	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
+		project = data.Project{
+			Datasets: map[string]data.Dataset{},
+		}
+		data.Projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]

@@ -1,14 +1,26 @@
-package main
+package routes
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
 type CreateTableRequest struct {
 	TableReference TableReference `json:"tableReference"`
 	Schema         Schema         `json:"schema"`
+}
+
+type TableReference struct {
+	ProjectId string `json:"projectId"`
+	DatasetId string `json:"datasetId"`
+	TableId   string `json:"tableId"`
+}
+
+type Schema struct {
+	Fields []data.Field `json:"fields"`
 }
 
 func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
@@ -30,10 +42,12 @@ func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetNam
 	}
 	tableName := body.TableReference.TableId
 
-	project, projectOk := projects[projectName]
+	project, projectOk := data.Projects[projectName]
 	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
+		project = data.Project{
+			Datasets: map[string]data.Dataset{},
+		}
+		data.Projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]
@@ -41,9 +55,9 @@ func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetNam
 		log.Fatalf("Dataset doesn't exist: %s", datasetName)
 	}
 
-	fieldsCopy := make([]Field, len(body.Schema.Fields))
+	fieldsCopy := make([]data.Field, len(body.Schema.Fields))
 	copy(fieldsCopy, body.Schema.Fields)
-	dataset.Tables[tableName] = Table{
+	dataset.Tables[tableName] = data.Table{
 		Fields: fieldsCopy,
 		Rows:   []map[string]interface{}{},
 	}

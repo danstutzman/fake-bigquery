@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"log"
@@ -14,7 +14,7 @@ var JOBS_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/jobs$")
 var QUERY_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/queries/([^/]*)$")
 var INSERT_REGEXP = regexp.MustCompile("^(/bigquery/v2)?/projects/([^/]*)/datasets/([^/]*)/tables/([^/]*)/insertAll")
 
-func route(w http.ResponseWriter, r *http.Request, discoveryJson []byte) {
+func Route(w http.ResponseWriter, r *http.Request, discoveryJson []byte) {
 	path := r.URL.Path
 	log.Printf("Incoming path: %s", path)
 

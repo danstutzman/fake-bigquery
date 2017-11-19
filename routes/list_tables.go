@@ -1,54 +1,21 @@
-package main
+package routes
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/danielstutzman/fake-bigquery/data"
 )
 
-type CreateDatasetRequest struct {
-	DatasetReference DatasetReference `json:"datasetReference"`
-}
-
-func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
-	decoder := json.NewDecoder(r.Body)
-	var body CreateDatasetRequest
-	err := decoder.Decode(&body)
-	if err != nil {
-		panic(err)
-	}
-	defer r.Body.Close()
-
-	projectName2 := body.DatasetReference.ProjectId
-	if projectName2 != projectName {
-		log.Fatalf("Expected project name to match")
-	}
-	datasetName := body.DatasetReference.DatasetId
-
-	project, projectOk := projects[projectName]
-	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
-	}
-
-	project.Datasets[datasetName] = Dataset{
-		Tables: map[string]Table{},
-	}
-
-	// Just serve the input as output
-	outputJson, err := json.Marshal(body)
-	if err != nil {
-		log.Fatalf("Error from Marshal: %v", err)
-	}
-	w.Write(outputJson)
-}
-
 func listTables(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
-	project, projectOk := projects[projectName]
+	project, projectOk := data.Projects[projectName]
 	if !projectOk {
-		project = Project{Datasets: map[string]Dataset{}}
-		projects[projectName] = project
+		project = data.Project{
+			Datasets: map[string]data.Dataset{},
+		}
+		data.Projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]

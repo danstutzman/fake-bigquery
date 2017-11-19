@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/danielstutzman/fake-bigquery/routes"
 )
 
 func main() {
@@ -35,7 +37,7 @@ func main() {
 
 func listenAndServe(discoveryJson []byte, portNum int) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		route(w, r, discoveryJson)
+		routes.Route(w, r, discoveryJson)
 	})
 
 	log.Printf("Listening on :%d...", portNum)
