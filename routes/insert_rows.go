@@ -19,7 +19,7 @@ type InsertRow struct {
 	Json     map[string]interface{} `json:"json"`
 }
 
-func insertRows(w http.ResponseWriter, r *http.Request, projectName, datasetName, tableName string) {
+func (app *App) insertRows(w http.ResponseWriter, r *http.Request, projectName, datasetName, tableName string) {
 	decoder := json.NewDecoder(r.Body)
 	var body InsertRowsRequest
 	err := decoder.Decode(&body)
@@ -28,12 +28,12 @@ func insertRows(w http.ResponseWriter, r *http.Request, projectName, datasetName
 	}
 	defer r.Body.Close()
 
-	project, projectOk := data.Projects[projectName]
+	project, projectOk := app.projects[projectName]
 	if !projectOk {
 		project = data.Project{
 			Datasets: map[string]data.Dataset{},
 		}
-		data.Projects[projectName] = project
+		app.projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]

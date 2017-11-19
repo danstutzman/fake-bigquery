@@ -31,7 +31,3 @@ type ResultRow struct {
 type ResultValue struct {
 	Value *string `json:"v"`
 }
-
-var Projects = map[string]Project{}
-
-var QueryResultByJobId = map[string]Result{}

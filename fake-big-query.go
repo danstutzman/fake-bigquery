@@ -36,9 +36,8 @@ func main() {
 }
 
 func listenAndServe(discoveryJson []byte, portNum int) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		routes.Route(w, r, discoveryJson)
-	})
+	app := routes.NewApp(discoveryJson)
+	http.HandleFunc("/", app.Route)
 
 	log.Printf("Listening on :%d...", portNum)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", portNum), nil)

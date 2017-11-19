@@ -33,7 +33,7 @@ type JobReference struct {
 	JobId     string `json:"jobId"`
 }
 
-func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
+func (app *App) createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 	decoder := json.NewDecoder(r.Body)
 	var body CreateJobRequest
 	err := decoder.Decode(&body)
@@ -49,7 +49,7 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 		datasetName := match[1]
 		tableName := match[2]
 
-		project, projectOk := data.Projects[projectName]
+		project, projectOk := app.projects[projectName]
 		if !projectOk {
 			log.Fatalf("Unknown project: %s", projectName)
 		}
@@ -96,7 +96,7 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 			}
 		}
 
-		project, projectOk := data.Projects[projectName]
+		project, projectOk := app.projects[projectName]
 		if !projectOk {
 			log.Fatalf("Unknown project: %s", projectName)
 		}
@@ -150,7 +150,7 @@ func createJob(w http.ResponseWriter, r *http.Request, projectName string) {
 	}
 
 	jobId := body.JobReference.JobId
-	data.QueryResultByJobId[jobId] = result
+	app.queryResultByJobId[jobId] = result
 
 	email := "a@b.com"
 	fmt.Fprintf(w, `{

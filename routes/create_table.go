@@ -23,7 +23,7 @@ type Schema struct {
 	Fields []data.Field `json:"fields"`
 }
 
-func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
+func (app *App) createTable(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
 	decoder := json.NewDecoder(r.Body)
 	var body CreateTableRequest
 	err := decoder.Decode(&body)
@@ -42,12 +42,12 @@ func createTable(w http.ResponseWriter, r *http.Request, projectName, datasetNam
 	}
 	tableName := body.TableReference.TableId
 
-	project, projectOk := data.Projects[projectName]
+	project, projectOk := app.projects[projectName]
 	if !projectOk {
 		project = data.Project{
 			Datasets: map[string]data.Dataset{},
 		}
-		data.Projects[projectName] = project
+		app.projects[projectName] = project
 	}
 
 	dataset, datasetOk := project.Datasets[datasetName]

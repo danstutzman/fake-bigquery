@@ -17,7 +17,7 @@ type DatasetReference struct {
 	ProjectId string `json:"projectId"`
 }
 
-func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
+func (app *App) createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
 	decoder := json.NewDecoder(r.Body)
 	var body CreateDatasetRequest
 	err := decoder.Decode(&body)
@@ -32,12 +32,12 @@ func createDataset(w http.ResponseWriter, r *http.Request, projectName string) {
 	}
 	datasetName := body.DatasetReference.DatasetId
 
-	project, projectOk := data.Projects[projectName]
+	project, projectOk := app.projects[projectName]
 	if !projectOk {
 		project = data.Project{
 			Datasets: map[string]data.Dataset{},
 		}
-		data.Projects[projectName] = project
+		app.projects[projectName] = project
 	}
 
 	project.Datasets[datasetName] = data.Dataset{

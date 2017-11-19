@@ -7,13 +7,13 @@ import (
 	"github.com/danielstutzman/fake-bigquery/data"
 )
 
-func checkDatasetExistence(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
-	project, projectOk := data.Projects[projectName]
+func (app *App) checkDatasetExistence(w http.ResponseWriter, r *http.Request, projectName, datasetName string) {
+	project, projectOk := app.projects[projectName]
 	if !projectOk {
 		project = data.Project{
 			Datasets: map[string]data.Dataset{},
 		}
-		data.Projects[projectName] = project
+		app.projects[projectName] = project
 	}
 
 	_, datasetExists := project.Datasets[datasetName]

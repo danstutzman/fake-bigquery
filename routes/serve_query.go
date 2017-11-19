@@ -5,18 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
-	"github.com/danielstutzman/fake-bigquery/data"
 )
 
-func serveQuery(w http.ResponseWriter, r *http.Request, projectName, jobId string) {
-	fields := data.QueryResultByJobId[jobId].Fields
+func (app *App) serveQuery(w http.ResponseWriter, r *http.Request, projectName, jobId string) {
+	fields := app.queryResultByJobId[jobId].Fields
 	fieldsJson, err := json.Marshal(fields)
 	if err != nil {
 		log.Fatalf("Error from Marshal: %s", err)
 	}
 
-	rows := data.QueryResultByJobId[jobId].Rows
+	rows := app.queryResultByJobId[jobId].Rows
 	rowsJson, err := json.Marshal(rows)
 	if err != nil {
 		log.Fatalf("Error from Marshal: %s", err)
